@@ -62,10 +62,21 @@ import java.util.*;
 public class ItemRegistryPopulator {
     private static final Map<String, PaletteVersion> PALETTE_VERSIONS;
 
+    public static List<String> externalItemRegisters = new ArrayList<>();
+    public static List<String> externalBlockItemRegisters = new ArrayList<>();
+
     static {
         PALETTE_VERSIONS = new Object2ObjectOpenHashMap<>();
         if (GeyserConnector.getInstance().getConfig().isExtendedWorldHeight()) {
-            PALETTE_VERSIONS.put("1_17_10.caves_and_cliffs", new PaletteVersion(Bedrock_v448.V448_CODEC.getProtocolVersion(), Collections.emptyMap()));
+            PALETTE_VERSIONS.put("1_17_10.caves_and_cliffs", new PaletteVersion(Bedrock_v448.V448_CODEC.getProtocolVersion(), new Object2ObjectOpenHashMap<String, String>() {
+                {
+                    if (externalItemRegisters.size() > 0) {
+                        for (int i = 0; i <= externalItemRegisters.size(); i++) {
+                            put(externalItemRegisters.get(i), "minecraft:diamond");
+                        }
+                    }
+                }
+            }));
         } else {
             PALETTE_VERSIONS.put("1_17_0", new PaletteVersion(Bedrock_v440.V440_CODEC.getProtocolVersion(), new Object2ObjectOpenHashMap<String, String>() {
                 {
@@ -86,9 +97,23 @@ public class ItemRegistryPopulator {
                     put("minecraft:green_candle", "minecraft:sea_pickle");
                     put("minecraft:red_candle", "minecraft:sea_pickle");
                     put("minecraft:black_candle", "minecraft:sea_pickle");
+
+                    if (externalItemRegisters.size() > 0) {
+                        for (int i = 0; i <= externalItemRegisters.size(); i++) {
+                            put(externalItemRegisters.get(i), "minecraft:diamond");
+                        }
+                    }
                 }
             }));
-            PALETTE_VERSIONS.put("1_17_10", new PaletteVersion(Bedrock_v448.V448_CODEC.getProtocolVersion(), Collections.emptyMap()));
+            PALETTE_VERSIONS.put("1_17_10", new PaletteVersion(Bedrock_v448.V448_CODEC.getProtocolVersion(), new Object2ObjectOpenHashMap<String, String>() {
+                {
+                    if (externalItemRegisters.size() > 0) {
+                        for (int i = 0; i <= externalItemRegisters.size(); i++) {
+                            put(externalItemRegisters.get(i), "minecraft:diamond");
+                        }
+                    }
+                }
+            }));
         }
     }
 
@@ -363,7 +388,7 @@ public class ItemRegistryPopulator {
                             }
 
                             // Because we have replaced the Bedrock block ID, we also need to replace the creative contents block runtime ID
-                            // That way, creative items work correctly for these blocks
+                            // That way, `creative` items work correctly for these blocks
                             for (int j = 0; j < creativeItems.size(); j++) {
                                 ItemData itemData = creativeItems.get(j);
                                 if (itemData.getId() == bedrockId) {
@@ -462,6 +487,27 @@ public class ItemRegistryPopulator {
                     .build();
             mappings.put(itemIndex, lodestoneEntry);
             identifierToMapping.put(lodestoneEntry.getJavaIdentifier(), lodestoneEntry);
+
+            int externalItemRegistersIds = 601;
+            int itemIndex2 = itemIndex;
+            if (externalItemRegisters.size() > 0) {
+                for (int i = 0; i <= externalItemRegisters.size(); i++) {
+                    ItemMapping externalItemEntry = ItemMapping.builder()
+                            .javaIdentifier(externalItemRegisters.get(i))
+                            .bedrockIdentifier(externalItemRegisters.get(i))
+                            .javaId(itemIndex2)
+                            .bedrockBlockId(externalItemRegistersIds)
+                            .bedrockData(0)
+                            .bedrockBlockId(-1)
+                            .stackSize(64)
+                            .build();
+
+                    mappings.put(itemIndex2, externalItemEntry);
+                    identifierToMapping.put(externalItemEntry.getJavaIdentifier(), externalItemEntry);
+                    externalItemRegistersIds++;
+                    itemIn dex2++;
+                }
+            }
 
             ComponentItemData furnaceMinecartData = null;
             if (usingFurnaceMinecart) {
