@@ -239,6 +239,8 @@ public class ItemRegistryPopulator {
 
             int itemIndex = 0;
             int javaFurnaceMinecartId = 0;
+            List<Integer> javaCustomItemId = new ArrayList<>();
+
             boolean usingFurnaceMinecart = GeyserConnector.getInstance().getConfig().isAddNonBedrockItems();
 
             Set<String> javaOnlyItems = new ObjectOpenHashSet<>();
@@ -476,10 +478,11 @@ public class ItemRegistryPopulator {
             mappings.put(itemIndex, lodestoneEntry);
             identifierToMapping.put(lodestoneEntry.getJavaIdentifier(), lodestoneEntry);
 
+            int furnaceMinecartId = mappings.size() + 1;
+
             ComponentItemData furnaceMinecartData = null;
             if (usingFurnaceMinecart) {
                 // Add the furnace minecart as a custom item
-                int furnaceMinecartId = mappings.size() + 1;
 
                 entries.put("geysermc:furnace_minecart", new StartGamePacket.ItemEntry("geysermc:furnace_minecart", (short) furnaceMinecartId, true));
 
@@ -526,18 +529,20 @@ public class ItemRegistryPopulator {
                 componentBuilder.putCompound("item_properties", itemProperties.build());
                 builder.putCompound("components", componentBuilder.build());
                 furnaceMinecartData = new ComponentItemData("geysermc:furnace_minecart", builder.build());
+                netId++;
             }
 
+            List<ComponentItemData> customItemData = new ArrayList<>();
             if (externalItemRegisters.size() > 0) {
                 for (int i2 = 0; i2 < externalItemRegisters.size(); i2++) {
-                    int newItemID = mappings.size() + 1;
+                    int newItemID = furnaceMinecartId + i2 + 1;
 
                     entries.put(externalItemNamespace.get(i2) + ":" + externalItemPath.get(i2), new StartGamePacket.ItemEntry(externalItemNamespace.get(i2) + ":" + externalItemPath.get(i2), (short) newItemID, true));
 
-                    mappings.put(javaFurnaceMinecartId, ItemMapping.builder()
+                    mappings.put(itemIndex, ItemMapping.builder()
                             .javaIdentifier(externalItemNamespace.get(i2) + ":" + externalItemPath.get(i2))
                             .bedrockIdentifier(externalItemNamespace.get(i2) + ":" + externalItemPath.get(i2))
-                            .javaId(javaFurnaceMinecartId)
+                            .javaId(itemIndex)
                             .bedrockId(newItemID)
                             .bedrockData(0)
                             .bedrockBlockId(-1)
@@ -562,12 +567,14 @@ public class ItemRegistryPopulator {
 
                     itemProperties.putBoolean("allow_off_hand", true);
                     itemProperties.putBoolean("hand_equipped", false);
-                    itemProperties.putInt("max_stack_size", 1);
+                    itemProperties.putInt("max_stack_size", 64);
                     itemProperties.putInt("creative_category", 4);
 
                     componentBuilder.putCompound("item_properties", itemProperties.build());
                     builder.putCompound("components", componentBuilder.build());
-                    furnaceMinecartData = new ComponentItemData(externalItemNamespace.get(i2) + ":" + externalItemPath.get(i2), builder.build());
+                    customItemData.add(new ComponentItemData(externalItemNamespace.get(i2) + ":" + externalItemPath.get(i2), builder.build()));
+                    itemIndex++;
+                    netId++;
                 }
             }
 
@@ -583,6 +590,7 @@ public class ItemRegistryPopulator {
                     .spawnEggIds(spawnEggs)
                     .carpets(carpets)
                     .furnaceMinecartData(furnaceMinecartData)
+                    .customItemData(customItemData)
                     .build();
 
             Registries.ITEMS.register(palette.getValue().getProtocolVersion(), itemMappings);
