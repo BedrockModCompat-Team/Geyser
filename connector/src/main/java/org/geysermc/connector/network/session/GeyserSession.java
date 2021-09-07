@@ -1121,6 +1121,8 @@ public class GeyserSession implements CommandSender {
         startGamePacket.setInventoriesServerAuthoritative(true);
         startGamePacket.setServerEngine(""); // Do we want to fill this in?
 
+        // Use to register custom blocks ----- startGamePacket.getBlockProperties().add(block);
+
         SyncedPlayerMovementSettings settings = new SyncedPlayerMovementSettings();
         settings.setMovementMode(AuthoritativeMovementMode.CLIENT);
         settings.setRewindHistorySize(0);
