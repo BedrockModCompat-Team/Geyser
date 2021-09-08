@@ -50,6 +50,9 @@ import com.github.steveice10.packetlib.packet.Packet;
 import com.github.steveice10.packetlib.tcp.TcpClientSession;
 import com.nukkitx.math.GenericMath;
 import com.nukkitx.math.vector.*;
+import com.nukkitx.nbt.NbtMap;
+import com.nukkitx.nbt.NbtMapBuilder;
+import com.nukkitx.nbt.NbtType;
 import com.nukkitx.protocol.bedrock.BedrockPacket;
 import com.nukkitx.protocol.bedrock.BedrockServerSession;
 import com.nukkitx.protocol.bedrock.data.*;
@@ -90,6 +93,7 @@ import org.geysermc.connector.network.translators.chat.MessageTranslator;
 import org.geysermc.connector.network.translators.collision.CollisionManager;
 import org.geysermc.connector.network.translators.inventory.InventoryTranslator;
 import org.geysermc.connector.registry.Registries;
+import org.geysermc.connector.registry.populator.ItemRegistryPopulator;
 import org.geysermc.connector.registry.type.BlockMappings;
 import org.geysermc.connector.registry.type.ItemMappings;
 import org.geysermc.connector.skin.FloodgateSkinUploader;
@@ -477,6 +481,13 @@ public class GeyserSession implements CommandSender {
         });
     }
 
+    private static NbtMap putWithValue(Object value) {
+        NbtMapBuilder builder = NbtMap.builder();
+        builder.put("value", value);
+
+        return builder.build();
+    }
+
     /**
      * Send all necessary packets to load Bedrock into the server
      */
@@ -485,6 +496,7 @@ public class GeyserSession implements CommandSender {
         this.remoteAddress = connector.getConfig().getRemote().getAddress();
         this.remotePort = connector.getConfig().getRemote().getPort();
         this.remoteAuthType = connector.getConfig().getRemote().getAuthType();
+
 
         // Set the hardcoded shield ID to the ID we just defined in StartGamePacket
         upstream.getSession().getHardcodedBlockingId().set(this.itemMappings.getStoredItems().shield().getBedrockId());
@@ -1071,6 +1083,32 @@ public class GeyserSession implements CommandSender {
     }
 
     private void startGame() {
+
+        List<BlockPropertyData> customBlocks = new ArrayList<>();
+
+        for (int i = 0; i < ItemRegistryPopulator.externalBlockItemRegisters.size(); i++) {
+            NbtMapBuilder blockBuilder = NbtMap.builder();
+            blockBuilder.putCompound("minecraft:destroy_time", putWithValue(0.5f)); //TODO
+            blockBuilder.putCompound("minecraft:material_instances", NbtMap.builder()
+                    .putCompound("mappings", NbtMap.EMPTY)
+                    .putCompound("materials", NbtMap.builder()
+                            .putCompound("*", NbtMap.builder()
+                                    .putBoolean("ambient_occlusion", true)
+                                    .putBoolean("face_dimming", true)
+                                    .putString("texture", ItemRegistryPopulator.externalBlockItemPath.get(i))
+                                    .putString("render_method", "opaque").build())
+                            .build())
+                    .build());
+            blockBuilder.putCompound("minecraft:entity_collision", NbtMap.builder()
+                    .putBoolean("enabled", true)
+                    .putList("origin", NbtType.FLOAT, Arrays.asList(0f, 0f, 0f))
+                    .putList("size", NbtType.FLOAT, Arrays.asList(16f, 16f, 16f)).build());
+            blockBuilder.putCompound("minecraft:unit_cube", NbtMap.EMPTY);
+            blockBuilder.putCompound("minecraft:block_light_absorption", putWithValue(0));
+
+            customBlocks.add(new BlockPropertyData(ItemRegistryPopulator.externalBlockItemNamespace + ":" + ItemRegistryPopulator.externalBlockItemPath, NbtMap.builder().putCompound("components", blockBuilder.build()).build()));
+        }
+
         StartGamePacket startGamePacket = new StartGamePacket();
         startGamePacket.setUniqueEntityId(playerEntity.getGeyserId());
         startGamePacket.setRuntimeEntityId(playerEntity.getGeyserId());
@@ -1117,6 +1155,10 @@ public class GeyserSession implements CommandSender {
         startGamePacket.setEnchantmentSeed(0);
         startGamePacket.setMultiplayerCorrelationId("");
         startGamePacket.setItemEntries(this.itemMappings.getItemEntries());
+
+        for (int blockData = 0; blockData < customBlocks.size(); blockData++) {
+            startGamePacket.getBlockProperties().add(customBlocks.get(blockData));
+        }
         startGamePacket.setVanillaVersion("*");
         startGamePacket.setInventoriesServerAuthoritative(true);
         startGamePacket.setServerEngine(""); // Do we want to fill this in?

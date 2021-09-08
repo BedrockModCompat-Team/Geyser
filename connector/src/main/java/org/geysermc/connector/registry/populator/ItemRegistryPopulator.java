@@ -63,10 +63,13 @@ public class ItemRegistryPopulator {
     private static final Map<String, PaletteVersion> PALETTE_VERSIONS;
 
     public static List<Integer> externalItemRegisters = new ArrayList<>();
+    public static List<Integer> externalItemStackSizes = new ArrayList<>();
     public static List<String> externalItemNamespace = new ArrayList<>();
     public static List<String> externalItemPath = new ArrayList<>();
 
     public static List<Integer> externalBlockItemRegisters = new ArrayList<>();
+    public static List<String> externalBlockItemNamespace = new ArrayList<>();
+    public static List<String> externalBlockItemPath = new ArrayList<>();
 
     static {
         PALETTE_VERSIONS = new Object2ObjectOpenHashMap<>();
@@ -567,7 +570,7 @@ public class ItemRegistryPopulator {
 
                     itemProperties.putBoolean("allow_off_hand", true);
                     itemProperties.putBoolean("hand_equipped", false);
-                    itemProperties.putInt("max_stack_size", 64);
+                    itemProperties.putInt("max_stack_size", externalItemStackSizes.get(i2));
                     itemProperties.putInt("creative_category", 4);
 
                     componentBuilder.putCompound("item_properties", itemProperties.build());
