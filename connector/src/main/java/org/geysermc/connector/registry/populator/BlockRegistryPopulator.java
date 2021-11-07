@@ -28,6 +28,7 @@ package org.geysermc.connector.registry.populator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableMap;
 import com.nukkitx.nbt.*;
+import com.nukkitx.protocol.bedrock.data.BlockPropertyData;
 import com.nukkitx.protocol.bedrock.v440.Bedrock_v440;
 import com.nukkitx.protocol.bedrock.v448.Bedrock_v448;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
@@ -40,6 +41,7 @@ import org.geysermc.connector.network.translators.world.block.BlockStateValues;
 import org.geysermc.connector.network.translators.world.chunk.BlockStorage;
 import org.geysermc.connector.network.translators.world.chunk.ChunkSection;
 import org.geysermc.connector.registry.BlockRegistries;
+import org.geysermc.connector.registry.Registry;
 import org.geysermc.connector.registry.type.BlockMapping;
 import org.geysermc.connector.registry.type.BlockMappings;
 import org.geysermc.connector.utils.BlockUtils;
@@ -47,10 +49,7 @@ import org.geysermc.connector.utils.FileUtils;
 
 import java.io.DataInputStream;
 import java.io.InputStream;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.zip.GZIPInputStream;
 
@@ -61,6 +60,10 @@ public class BlockRegistryPopulator {
     private static final ImmutableMap<String, BiFunction<String, NbtMapBuilder, String>> STATE_MAPPER;
 
     private static final Object2IntMap<String> PALETTE_VERSIONS;
+
+    public static List<BlockPropertyData> customBlocks = new ArrayList<>();
+
+    public static List<Integer> javaRuntimeIds = new ArrayList<>();
 
     static {
         ImmutableMap.Builder<String, BiFunction<String, NbtMapBuilder, String>> stateMapperBuilder = ImmutableMap.<String, BiFunction<String, NbtMapBuilder, String>>builder()
@@ -96,7 +99,40 @@ public class BlockRegistryPopulator {
      */
     private static JsonNode BLOCKS_JSON;
 
+    public static List<Map.Entry<String, String>> customBlockIdentifiers = new ArrayList<>();
+
+    private static NbtMap putWithValue(Object value) {
+        NbtMapBuilder builder = NbtMap.builder();
+        builder.put("value", value);
+
+        return builder.build();
+    }
+
     public static void populate() {
+        //Collections.sort(ItemRegistryPopulator.externalBlockItemPath, Collections.reverseOrder());
+        for (int i = 0; i < ItemRegistryPopulator.externalBlockItemRegisters.size(); i++) {
+            NbtMapBuilder blockBuilder = NbtMap.builder();
+            blockBuilder.putCompound("minecraft:destroy_time", putWithValue(0.5f)); //TODO
+            blockBuilder.putCompound("minecraft:material_instances", NbtMap.builder()
+                    .putCompound("mappings", NbtMap.EMPTY)
+                    .putCompound("materials", NbtMap.builder()
+                            .putCompound("*", NbtMap.builder()
+                                    .putBoolean("ambient_occlusion", true)
+                                    .putBoolean("face_dimming", true)
+                                    //.putString("texture", ItemRegistryPopulator.externalBlockItemPath.get(i))
+                                    .putString("render_method", "opaque").build())
+                            .build())
+                    .build());
+            blockBuilder.putCompound("minecraft:entity_collision", NbtMap.builder()
+                    .putBoolean("enabled", true)
+                    .putList("origin", NbtType.FLOAT, Arrays.asList(0f, 0f, 0f))
+                    .putList("size", NbtType.FLOAT, Arrays.asList(16f, 16f, 16f)).build());
+            blockBuilder.putCompound("minecraft:unit_cube", NbtMap.EMPTY);
+            blockBuilder.putCompound("minecraft:block_light_absorption", putWithValue(0));
+
+            customBlocks.add(new BlockPropertyData(ItemRegistryPopulator.externalBlockItemNamespace.get(i) + ":zzz" + ItemRegistryPopulator.externalBlockItemPath.get(i), NbtMap.builder().putCompound("components", blockBuilder.build()).build()));
+        }
+
         registerJavaBlocks();
         registerBedrockBlocks();
 
@@ -190,6 +226,16 @@ public class BlockRegistryPopulator {
                 }
 
                 javaToBedrockBlockMap.put(javaRuntimeId, bedrockRuntimeId);
+
+                if (!blocksIterator.hasNext()) {
+                    int moddedRuntimeId = blockStateOrderedMap.size();
+                    for (int i = 0; i < customBlocks.size(); i++) {
+                        moddedRuntimeId++;
+                        System.out.println(moddedRuntimeId);
+                        bedrockToJavaBlockMap.putIfAbsent(moddedRuntimeId, javaRuntimeIds.get(i).intValue());
+                        javaToBedrockBlockMap.put(javaRuntimeIds.get(i).intValue(), moddedRuntimeId);
+                    }
+                }
             }
 
             if (commandBlockRuntimeId == -1) {
@@ -318,6 +364,32 @@ public class BlockRegistryPopulator {
                 waterRuntimeId = javaRuntimeId;
             }
         }
+
+        System.out.println(customBlocks.size());
+        System.out.println("Namespace: " + ItemRegistryPopulator.externalBlockItemNamespace.size() + " | " + "Path: " + ItemRegistryPopulator.externalBlockItemPath);
+        for (int i = 0; i < customBlocks.size(); i++) {
+            System.out.println("Registering java block...");
+            String cleanJavaIdentifier = BlockUtils.getCleanIdentifier(ItemRegistryPopulator.externalBlockItemNamespace.get(i) + ":" + ItemRegistryPopulator.externalBlockItemPath.get(i));
+            String bedrockIdentifier = ItemRegistryPopulator.externalBlockItemNamespace.get(i) + ":" + ItemRegistryPopulator.externalBlockItemPath.get(i);
+            //String bedrockIdentifier = ItemRegistryPopulator.externalBlockItemNamespace.get(i) + ":zzz" + ItemRegistryPopulator.externalBlockItemPath.get(i);
+
+            BlockMapping.BlockMappingBuilder builder = BlockMapping.builder();
+            builder.hardness(1);
+            builder.canBreakWithHand(false);
+            builder.collisionIndex(1);
+            builder.pickItem(ItemRegistryPopulator.externalBlockItemNamespace.get(i) + ":" + ItemRegistryPopulator.externalBlockItemPath.get(i));
+            builder.javaIdentifier(ItemRegistryPopulator.externalBlockItemNamespace.get(i) + ":" + ItemRegistryPopulator.externalBlockItemPath.get(i));
+            builder.javaBlockId(javaRuntimeIds.get(i));
+
+            BlockRegistries.JAVA_IDENTIFIERS.register(ItemRegistryPopulator.externalBlockItemNamespace.get(i) + ":" + ItemRegistryPopulator.externalBlockItemPath.get(i), javaRuntimeIds.get(i));
+            BlockRegistries.JAVA_BLOCKS.register(javaRuntimeIds.get(i), builder.build());
+            BlockRegistries.JAVA_TO_BEDROCK_IDENTIFIERS.register(cleanJavaIdentifier.intern(), bedrockIdentifier.intern());
+
+            System.out.println(BlockRegistries.JAVA_IDENTIFIERS.register(ItemRegistryPopulator.externalBlockItemNamespace.get(i) + ":" + ItemRegistryPopulator.externalBlockItemPath.get(i), javaRuntimeIds.get(i)));
+            System.out.println(BlockRegistries.JAVA_BLOCKS.register(javaRuntimeIds.get(i), builder.build()));
+            System.out.println(BlockRegistries.JAVA_TO_BEDROCK_IDENTIFIERS.register(cleanJavaIdentifier.intern(), bedrockIdentifier.intern()));
+        }
+
         if (bellBlockId == -1) {
             throw new AssertionError("Unable to find bell in palette");
         }

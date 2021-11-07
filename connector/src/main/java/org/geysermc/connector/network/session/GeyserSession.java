@@ -93,6 +93,7 @@ import org.geysermc.connector.network.translators.chat.MessageTranslator;
 import org.geysermc.connector.network.translators.collision.CollisionManager;
 import org.geysermc.connector.network.translators.inventory.InventoryTranslator;
 import org.geysermc.connector.registry.Registries;
+import org.geysermc.connector.registry.populator.BlockRegistryPopulator;
 import org.geysermc.connector.registry.populator.ItemRegistryPopulator;
 import org.geysermc.connector.registry.type.BlockMappings;
 import org.geysermc.connector.registry.type.ItemMappings;
@@ -479,13 +480,6 @@ public class GeyserSession implements CommandSender {
             disconnect(disconnectReason.name());
             connector.removePlayer(this);
         });
-    }
-
-    private static NbtMap putWithValue(Object value) {
-        NbtMapBuilder builder = NbtMap.builder();
-        builder.put("value", value);
-
-        return builder.build();
     }
 
     /**
@@ -1084,32 +1078,8 @@ public class GeyserSession implements CommandSender {
 
     private void startGame() {
 
-        List<BlockPropertyData> customBlocks = new ArrayList<>();
-
-        for (int i = 0; i < ItemRegistryPopulator.externalBlockItemRegisters.size(); i++) {
-            NbtMapBuilder blockBuilder = NbtMap.builder();
-            blockBuilder.putCompound("minecraft:destroy_time", putWithValue(0.5f)); //TODO
-            blockBuilder.putCompound("minecraft:material_instances", NbtMap.builder()
-                    .putCompound("mappings", NbtMap.EMPTY)
-                    .putCompound("materials", NbtMap.builder()
-                            .putCompound("*", NbtMap.builder()
-                                    .putBoolean("ambient_occlusion", true)
-                                    .putBoolean("face_dimming", true)
-                                    .putString("texture", ItemRegistryPopulator.externalBlockItemPath.get(i))
-                                    .putString("render_method", "opaque").build())
-                            .build())
-                    .build());
-            blockBuilder.putCompound("minecraft:entity_collision", NbtMap.builder()
-                    .putBoolean("enabled", true)
-                    .putList("origin", NbtType.FLOAT, Arrays.asList(0f, 0f, 0f))
-                    .putList("size", NbtType.FLOAT, Arrays.asList(16f, 16f, 16f)).build());
-            blockBuilder.putCompound("minecraft:unit_cube", NbtMap.EMPTY);
-            blockBuilder.putCompound("minecraft:block_light_absorption", putWithValue(0));
-
-            customBlocks.add(new BlockPropertyData(ItemRegistryPopulator.externalBlockItemNamespace + ":" + ItemRegistryPopulator.externalBlockItemPath, NbtMap.builder().putCompound("components", blockBuilder.build()).build()));
-        }
-
         StartGamePacket startGamePacket = new StartGamePacket();
+
         startGamePacket.setUniqueEntityId(playerEntity.getGeyserId());
         startGamePacket.setRuntimeEntityId(playerEntity.getGeyserId());
         startGamePacket.setPlayerGameType(GameType.SURVIVAL);
@@ -1145,6 +1115,7 @@ public class GeyserSession implements CommandSender {
         startGamePacket.setUsingMsaGamertagsOnly(false);
         startGamePacket.setFromWorldTemplate(false);
         startGamePacket.setWorldTemplateOptionLocked(false);
+        startGamePacket.getExperiments().add(new ExperimentData("data_driven_items", true));
 
         String serverName = connector.getConfig().getBedrock().getServerName();
         startGamePacket.setLevelId(serverName);
@@ -1156,9 +1127,10 @@ public class GeyserSession implements CommandSender {
         startGamePacket.setMultiplayerCorrelationId("");
         startGamePacket.setItemEntries(this.itemMappings.getItemEntries());
 
-        for (int blockData = 0; blockData < customBlocks.size(); blockData++) {
-            startGamePacket.getBlockProperties().add(customBlocks.get(blockData));
+        for (int blockData = 0; blockData < BlockRegistryPopulator.customBlocks.size(); blockData++) {
+            startGamePacket.getBlockProperties().add(BlockRegistryPopulator.customBlocks.get(blockData));
         }
+
         startGamePacket.setVanillaVersion("*");
         startGamePacket.setInventoriesServerAuthoritative(true);
         startGamePacket.setServerEngine(""); // Do we want to fill this in?
@@ -1261,6 +1233,7 @@ public class GeyserSession implements CommandSender {
      * @param packet the bedrock packet from the NukkitX protocol lib
      */
     public void sendUpstreamPacket(BedrockPacket packet) {
+        //System.out.println(packet);
         upstream.sendPacket(packet);
     }
 

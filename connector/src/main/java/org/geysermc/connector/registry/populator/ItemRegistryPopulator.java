@@ -67,6 +67,10 @@ public class ItemRegistryPopulator {
     public static List<String> externalItemNamespace = new ArrayList<>();
     public static List<String> externalItemPath = new ArrayList<>();
 
+    public static List<Boolean> externalItemArmorCheck = new ArrayList<>();
+    public static List<Integer> externalItemDefense = new ArrayList<>();
+    public static List<Integer> externalItemEquipSlot = new ArrayList<>();
+
     public static List<Integer> externalBlockItemRegisters = new ArrayList<>();
     public static List<String> externalBlockItemNamespace = new ArrayList<>();
     public static List<String> externalBlockItemPath = new ArrayList<>();
@@ -565,6 +569,22 @@ public class ItemRegistryPopulator {
 
                     componentBuilder.putCompound("minecraft:icon", NbtMap.builder().putString("texture", externalItemPath.get(i2)).build());
                     componentBuilder.putCompound("minecraft:display_name", NbtMap.builder().putString("value", "item." + externalItemPath.get(i2) + ".name").build());
+
+                    if (externalItemArmorCheck.get(i2) == true) {
+                        componentBuilder.putCompound("minecraft:armor", NbtMap.builder().putInt("protection", externalItemDefense.get(i2)).build());
+
+                        if (externalItemEquipSlot.get(i2) == 0) {
+                            componentBuilder.putCompound("minecraft:wearable", NbtMap.builder().putString("slot", "slot.armor.head").build());
+                        } else if (externalItemEquipSlot.get(i2) == 1) {
+                            componentBuilder.putCompound("minecraft:wearable", NbtMap.builder().putString("slot", "slot.armor.chest").build());
+                        } else if (externalItemEquipSlot.get(i2) == 2) {
+                            componentBuilder.putCompound("minecraft:wearable", NbtMap.builder().putString("slot", "slot.armor.legs").build());
+                        } else if (externalItemEquipSlot.get(i2) == 3) {
+                            componentBuilder.putCompound("minecraft:wearable", NbtMap.builder().putString("slot", "slot.armor.feet").build());
+                        } else {
+                            componentBuilder.putCompound("minecraft:wearable", NbtMap.builder().putString("slot", "slot.armor.head").build());
+                        }
+                    }
 
                     NbtMapBuilder itemProperties = NbtMap.builder();
 
